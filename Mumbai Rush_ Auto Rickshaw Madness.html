@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mumbai Rush: Auto Rickshaw Madness</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --taxi-yellow: #FFD000;
+            --taxi-black: #18181B;
+            --best-red: #E11D48;
+            --meter-green: #10B981;
+        }
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #090D16;
+            color: #F8FAFC;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100dvh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .font-arcade {
+            font-family: 'Bungee', cursive;
+        }
+        .font-meter {
+            font-family: 'Chakra Petch', monospace;
+        }
+        /* Custom Kaali-Peeli stripes */
+        .kaali-peeli-border {
+            background: repeating-linear-gradient(
+                -45deg,
+                #FFD000,
+                #FFD000 14px,
+                #18181B 14px,
+                #18181B 28px
+            );
+        }
+        /* Arcade Button Styling */
+        .arcade-btn {
+            transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.08s ease;
+            box-shadow: 0 5px 0 #000000, 0 8px 15px rgba(0,0,0,0.4);
+        }
+        .arcade-btn:active, .arcade-btn.active-press {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #000000, 0 2px 5px rgba(0,0,0,0.4);
+        }
+        /* Canvas wrapper glow */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 540px;
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-left: 4px solid #27272A;
+            border-right: 4px solid #27272A;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.85);
+            background: #1E293B;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        @keyframes pulse-fast {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 0.8s infinite;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 select-none">
+
+    <!-- TOP DIGITAL FARE METER HUD -->
+    <header class="w-full max-w-[540px] bg-zinc-900 border-b-4 border-yellow-400 px-3 py-2 z-20 shadow-lg shrink-0">
+        <div class="flex items-center justify-between gap-2">
+            <!-- Brand & Electronic Meter -->
+            <div class="flex items-center gap-2">
+                <div class="bg-yellow-400 text-zinc-950 font-arcade text-xs sm:text-sm px-2 py-1 rounded border-2 border-black shadow-sm leading-tight">
+                    MH•01<br><span class="text-[10px] font-bold">METER</span>
+                </div>
+                <div class="bg-black border-2 border-zinc-700 rounded-lg px-2.5 py-1 flex items-center gap-3 shadow-inner">
+                    <div>
+                        <div class="text-[9px] text-zinc-400 uppercase tracking-wider font-bold">Total Fare</div>
+                        <div class="font-meter text-lg sm:text-xl font-bold text-emerald-400 leading-none">
+                            ₹<span id="ui-fare">23</span>
+                        </div>
+                    </div>
+                    <div class="h-6 w-[1px] bg-zinc-800"></div>
+                    <div>
+                        <div class="text-[9px] text-zinc-400 uppercase tracking-wider font-bold">Dist</div>
+                        <div class="font-meter text-sm sm:text-base font-bold text-amber-400 leading-none">
+                            <span id="ui-dist">0.0</span><span class="text-[10px] ml-0.5">km</span>
+                        </div>
+                    </div>
+                    <div class="hidden sm:block h-6 w-[1px] bg-zinc-800"></div>
+                    <div class="hidden sm:block">
+                        <div class="text-[9px] text-zinc-400 uppercase tracking-wider font-bold">Best</div>
+                        <div class="font-meter text-sm font-bold text-yellow-300 leading-none">
+                            ₹<span id="ui-best">23</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vada Pav Health & Utility Toggles -->
+            <div class="flex items-center gap-2">
+                <!-- Health: 3 Vada Pavs -->
+                <div class="bg-zinc-800/90 border border-zinc-700 rounded-lg px-2 py-1 flex flex-col items-center">
+                    <span class="text-[8px] uppercase tracking-wider text-amber-300 font-bold">Vada Pav HP</span>
+                    <div id="ui-health" class="flex items-center gap-1 text-base sm:text-lg leading-none mt-0.5" title="Health">
+                        <span>🍔</span><span>🍔</span><span>🍔</span>
+                    </div>
+                </div>
+
+                <!-- Monsoon Toggle Button -->
+                <button id="btn-rain" class="arcade-btn bg-sky-600 hover:bg-sky-500 text-white p-2 rounded-lg border-2 border-black text-xs font-bold flex flex-col items-center justify-center w-11 h-11" title="Toggle Mumbai Monsoon">
+                    <span id="rain-icon" class="text-base leading-none">☀️</span>
+                    <span id="rain-label" class="text-[8px] uppercase mt-0.5 font-extrabold">Dry</span>
+                </button>
+
+                <!-- Audio Mute Button -->
+                <button id="btn-mute" class="arcade-btn bg-zinc-700 hover:bg-zinc-600 text-white p-2 rounded-lg border-2 border-black text-xs font-bold flex flex-col items-center justify-center w-10 h-11" title="Toggle Sound">
+                    <span id="mute-icon" class="text-base leading-none">🔊</span>
+                    <span class="text-[8px] uppercase mt-0.5 font-extrabold">SFX</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Bar: Cutting Chai Boost / Horn Cooldown / Landmark Banner -->
+        <div class="mt-1.5 flex items-center justify-between text-xs gap-2">
+            <!-- Horn Ready Progress -->
+            <div class="flex items-center gap-1.5 flex-1 bg-zinc-950/80 px-2 py-1 rounded border border-zinc-800">
+                <span class="text-[10px] font-bold text-yellow-400 uppercase whitespace-nowrap">📢 Horn OK:</span>
+                <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                    <div id="ui-horn-bar" class="bg-gradient-to-r from-amber-500 to-yellow-300 h-full w-full transition-all duration-75"></div>
+                </div>
+            </div>
+
+            <!-- Active Chai Turbo Indicator -->
+            <div id="ui-chai-badge" class="hidden bg-amber-500 text-black font-extrabold px-2 py-0.5 rounded border border-black text-[10px] uppercase tracking-wider animate-pulse-fast">
+                ☕ Cutting Chai Turbo!
+            </div>
+
+            <!-- Passing Landmark Indicator -->
+            <div class="bg-zinc-950/80 px-2.5 py-1 rounded border border-zinc-800 text-[10px] text-zinc-300 font-semibold truncate max-w-[175px]">
+                📍 <span id="ui-landmark" class="text-amber-300">Bandra-Worli Sea Link</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAME CANVAS AREA -->
+    <main id="canvas-wrapper">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- START / GAME OVER OVERLAY MODAL -->
+        <div id="overlay-screen" class="absolute inset-0 bg-zinc-950/90 backdrop-blur-md flex flex-col items-center justify-between p-4 z-30 overflow-y-auto">
+            <div class="w-full kaali-peeli-border h-3 rounded-full shrink-0"></div>
+
+            <div class="my-auto w-full max-w-md bg-zinc-900 border-4 border-yellow-400 rounded-2xl p-4 sm:p-5 shadow-2xl text-center">
+                <div class="inline-block bg-rose-600 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border border-black mb-1 tracking-widest">
+                    Western Express Highway Arcade
+                </div>
+                <h1 id="modal-title" class="font-arcade text-2xl sm:text-3xl text-yellow-400 drop-shadow-[0_3px_0_#000] tracking-wide leading-tight">
+                    MUMBAI RUSH
+                </h1>
+                <p id="modal-subtitle" class="text-xs sm:text-sm font-bold text-amber-200 mb-3">
+                    Kaali-Peeli Auto Rickshaw Madness!
+                </p>
+
+                <!-- Final Score Card (Hidden on Initial Launch) -->
+                <div id="score-summary" class="hidden bg-black/80 border-2 border-zinc-700 rounded-xl p-3 mb-3">
+                    <div class="text-xs text-zinc-400 uppercase font-bold">Final Meter Reading</div>
+                    <div class="font-meter text-3xl font-bold text-emerald-400 my-0.5">
+                        ₹<span id="final-fare">0</span>
+                    </div>
+                    <div class="text-xs text-amber-300 font-semibold">
+                        Distance Covered: <span id="final-dist">0.0</span> km • High Score: ₹<span id="final-best">23</span>
+                    </div>
+                    <div id="crash-reason" class="mt-1 text-[11px] text-rose-400 font-medium italic"></div>
+                </div>
+
+                <!-- Rules & Legend Grid -->
+                <div class="grid grid-cols-2 gap-2 text-left bg-zinc-950/90 p-3 rounded-xl border border-zinc-800 text-[11px] mb-4">
+                    <div class="flex items-start gap-2">
+                        <span class="text-base">🛺</span>
+                        <div>
+                            <div class="font-bold text-yellow-400">Steer & Weave</div>
+                            <div class="text-zinc-400 leading-tight">Dodge BEST buses, taxis, potholes & stray cows.</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-base">📢</span>
+                        <div>
+                            <div class="font-bold text-amber-400">Horn OK Please!</div>
+                            <div class="text-zinc-400 leading-tight">Press <kbd class="bg-zinc-800 px-1 rounded text-white">SPACE</kbd> to scatter slower traffic ahead!</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-base">☕</span>
+                        <div>
+                            <div class="font-bold text-orange-400">Cutting Chai</div>
+                            <div class="text-zinc-400 leading-tight">Grants high-speed Turbo & invincibility shield!</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-base">🍔</span>
+                        <div>
+                            <div class="font-bold text-emerald-400">Garam Vada Pav</div>
+                            <div class="text-zinc-400 leading-tight">Restores +1 Heart & ₹ coins boost meter fare.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button id="btn-start" class="arcade-btn w-full bg-yellow-400 hover:bg-yellow-300 text-zinc-950 font-arcade text-lg sm:text-xl py-3 px-6 rounded-xl border-2 border-black cursor-pointer">
+                    🛺 START METER (PULL LEVER)
+                </button>
+                <div class="mt-2.5 text-[11px] text-zinc-400 font-medium">
+                    Controls: <span class="text-zinc-200 font-bold">WASD / Arrow Keys</span> + <span class="text-zinc-200 font-bold">SPACE (Horn)</span> or Touch Buttons below
+                </div>
+            </div>
+
+            <div class="w-full kaali-peeli-border h-3 rounded-full shrink-0"></div>
+        </div>
+    </main>
+
+    <!-- BOTTOM ARCADE CONTROL DECK (OUTSIDE CANVAS) -->
+    <footer class="w-full max-w-[540px] bg-zinc-900 border-t-4 border-yellow-400 px-3 py-2.5 z-20 shrink-0">
+        <div class="flex items-center justify-between gap-2">
+            <!-- Left / Right Steering Buttons -->
+            <div class="flex items-center gap-2">
+                <button id="ctrl-left" class="arcade-btn bg-zinc-800 active:bg-yellow-400 active:text-black text-white font-bold w-14 h-12 sm:w-16 sm:h-12 rounded-xl border-2 border-black flex items-center justify-center text-xl" aria-label="Steer Left">
+                    ◀
+                </button>
+                <button id="ctrl-right" class="arcade-btn bg-zinc-800 active:bg-yellow-400 active:text-black text-white font-bold w-14 h-12 sm:w-16 sm:h-12 rounded-xl border-2 border-black flex items-center justify-center text-xl" aria-label="Steer Right">
+                    ▶
+                </button>
+            </div>
+
+            <!-- Center HORN OK PLEASE Button -->
+            <button id="ctrl-horn" class="arcade-btn flex-1 bg-gradient-to-b from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-zinc-950 font-arcade text-xs sm:text-sm h-12 rounded-xl border-2 border-black px-2 flex flex-col items-center justify-center leading-tight">
+                <span>📢 HORN OK PLEASE</span>
+                <span class="text-[9px] font-sans font-extrabold tracking-wider uppercase text-rose-900">Peep Peep! (Space)</span>
+            </button>
+
+            <!-- Gas / Brake Pedals -->
+            <div class="flex items-center gap-2">
+                <button id="ctrl-down" class="arcade-btn bg-rose-700 active:bg-rose-500 text-white font-extrabold w-12 h-12 sm:w-14 sm:h-12 rounded-xl border-2 border-black flex flex-col items-center justify-center text-xs" aria-label="Brake">
+                    <span>▼</span>
+                    <span class="text-[8px] uppercase">Brake</span>
+                </button>
+                <button id="ctrl-up" class="arcade-btn bg-emerald-600 active:bg-emerald-400 text-white font-extrabold w-12 h-12 sm:w-14 sm:h-12 rounded-xl border-2 border-black flex flex-col items-center justify-center text-xs" aria-label="Accelerate">
+                    <span>▲</span>
+                    <span class="text-[8px] uppercase">Gas</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /********************************************************************
+         * 1. WEB AUDIO SYNTHESIZER (Engine Hum, Musical Horn, Coins, Crash)
+         ********************************************************************/
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.engineOsc = null;
+                this.engineGain = null;
+                this.isEngineRunning = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            startEngine() {
+                this.init();
+                if (!this.ctx || this.isEngineRunning) return;
+                try {
+                    this.engineOsc = this.ctx.createOscillator();
+                    this.engineGain = this.ctx.createGain();
+                    // Auto rickshaw 2-stroke putter feel using sawtooth + low frequency
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineOsc.frequency.setValueAtTime(52, this.ctx.currentTime);
+                    this.engineGain.gain.setValueAtTime(this.muted ? 0 : 0.035, this.ctx.currentTime);
+
+                    this.engineOsc.connect(this.engineGain);
+                    this.engineGain.connect(this.ctx.destination);
+                    this.engineOsc.start();
+                    this.isEngineRunning = true;
+                } catch (e) {
+                    console.warn('Audio init error:', e);
+                }
+            }
+
+            updateEnginePitch(speedRatio, isBoost) {
+                if (!this.isEngineRunning || !this.engineOsc || !this.ctx) return;
+                const baseFreq = isBoost ? 95 : 48 + speedRatio * 42;
+                this.engineOsc.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.08);
+                this.engineGain.gain.setTargetAtTime(this.muted ? 0 : 0.035, this.ctx.currentTime, 0.05);
+            }
+
+            stopEngine() {
+                if (this.engineOsc) {
+                    try {
+                        this.engineOsc.stop();
+                        this.engineOsc.disconnect();
+                    } catch (e) {}
+                    this.engineOsc = null;
+                    this.isEngineRunning = false;
+                }
+            }
+
+            playHorn() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                // Iconic Indian truck/auto musical "Peep-Peep-Pom!" horn melody
+                const notes = [587.33, 659.25, 587.33, 783.99]; // D5, E5, D5, G5
+                const times = [0, 0.09, 0.18, 0.27];
+                const durations = [0.07, 0.07, 0.07, 0.18];
+
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + times[idx]);
+
+                    gain.gain.setValueAtTime(0.11, this.ctx.currentTime + times[idx]);
+                    gain.gain.exponentialRampToValueAtTime(0.008, this.ctx.currentTime + times[idx] + durations[idx]);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + times[idx]);
+                    osc.stop(this.ctx.currentTime + times[idx] + durations[idx]);
+                });
+            }
+
+            playCoin() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.07); // E6
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.005, now + 0.22);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.22);
+            }
+
+            playPowerup() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((f, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, now + i * 0.06);
+                    gain.gain.setValueAtTime(0.12, now + i * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.008, now + i * 0.06 + 0.14);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.06);
+                    osc.stop(now + i * 0.06 + 0.14);
+                });
+            }
+
+            playCrash() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(130, now);
+                osc.frequency.exponentialRampToValueAtTime(32, now + 0.32);
+
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.008, now + 0.34);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.34);
+            }
+        }
+
+        /********************************************************************
+         * 2. GAME CONFIGURATION & STATE
+         ********************************************************************/
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const sound = new SoundManager();
+
+        // UI DOM Elements
+        const uiFare = document.getElementById('ui-fare');
+        const uiDist = document.getElementById('ui-dist');
+        const uiBest = document.getElementById('ui-best');
+        const uiHealth = document.getElementById('ui-health');
+        const uiHornBar = document.getElementById('ui-horn-bar');
+        const uiChaiBadge = document.getElementById('ui-chai-badge');
+        const uiLandmark = document.getElementById('ui-landmark');
+        const overlayScreen = document.getElementById('overlay-screen');
+        const scoreSummary = document.getElementById('score-summary');
+        const finalFareEl = document.getElementById('final-fare');
+        const finalDistEl = document.getElementById('final-dist');
+        const finalBestEl = document.getElementById('final-best');
+        const crashReasonEl = document.getElementById('crash-reason');
+        const modalTitle = document.getElementById('modal-title');
+        const modalSubtitle = document.getElementById('modal-subtitle');
+        const btnStart = document.getElementById('btn-start');
+
+        const MUMBAI_LANDMARKS = [
+            "Bandra-Worli Sea Link",
+            "Mahim Causeway",
+            "Siddhivinayak Temple",
+            "Haji Ali Dargah",
+            "Marine Drive Queen's Necklace",
+            "Chhatrapati Shivaji Terminus",
+            "Gateway of India",
+            "Juhu Chowpatty Beach",
+            "Western Express Highway"
+        ];
+
+        let highScore = 23;
+        try {
+            const saved = localStorage.getItem('mumbai_rush_best_fare');
+            if (saved) highScore = parseInt(saved, 10) || 23;
+        } catch (e) {}
+        uiBest.textContent = highScore;
+
+        // Core Game State
+        const state = {
+            running: false,
+            lastTime: 0,
+            width: 420,
+            height: 680,
+            roadLeft: 44,
+            roadRight: 376,
+            roadWidth: 332,
+            lanes: 4,
+            laneWidth: 83,
+
+            // Metrics
+            distanceKm: 0,
+            bonusRupees: 0,
+            totalFare: 23, // Minimum Mumbai Auto base fare ₹23!
+            landmarkIndex: 0,
+            landmarkTimer: 0,
+
+            // Speed & Environment
+            baseSpeed: 290,
+            scrollOffset: 0,
+            rainActive: false,
+            weatherAutoTimer: 0,
+            screenShake: 0,
+
+            // Player Auto Rickshaw
+            player: {
+                x: 210,
+                y: 520,
+                w: 38,
+                h: 62,
+                vx: 0,
+                vy: 0,
+                speedMultiplier: 1,
+                health: 3,
+                maxHealth: 3,
+                invincibleTimer: 0,
+                chaiBoostTimer: 0,
+                slowedTimer: 0,
+                hornCooldown: 0,
+                maxHornCooldown: 3.2,
+                tiltAngle: 0
+            },
+
+            // Entities
+            obstacles: [],
+            collectibles: [],
+            hornWaves: [],
+            floatingTexts: [],
+            scenery: [],
+            rainDrops: [],
+            exhaustParticles: []
+        };
+
+        // Input Keys State
+        const keys = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
+
+        /********************************************************************
+         * 3. RESPONSIVE CANVAS RESIZING
+         ********************************************************************/
+        function resizeCanvas() {
+            const wrapper = document.getElementById('canvas-wrapper');
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = Math.max(320, Math.floor(rect.width));
+            canvas.height = Math.max(380, Math.floor(rect.height));
+
+            state.width = canvas.width;
+            state.height = canvas.height;
+
+            const sideMargin = Math.max(38, Math.floor(state.width * 0.11));
+            state.roadLeft = sideMargin;
+            state.roadRight = state.width - sideMargin;
+            state.roadWidth = state.roadRight - state.roadLeft;
+            state.laneWidth = state.roadWidth / state.lanes;
+
+            // Keep player within road boundaries on resize
+            state.player.x = Math.max(
+                state.roadLeft + state.player.w / 2 + 4,
+                Math.min(state.roadRight - state.player.w / 2 - 4, state.player.x)
+            );
+            state.player.y = Math.min(state.height - 90, Math.max(120, state.player.y));
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        /********************************************************************
+         * 4. INITIALIZATION & ENTITY SPAWNERS
+         ********************************************************************/
+        function initSceneryAndRain() {
+            state.scenery = [];
+            for (let y = -60; y < state.height + 80; y += 110) {
+                spawnSceneryPair(y);
+            }
+
+            state.rainDrops = [];
+            for (let i = 0; i < 85; i++) {
+                state.rainDrops.push({
+                    x: Math.random() * state.width,
+                    y: Math.random() * state.height,
+                    len: 12 + Math.random() * 14,
+                    speed: 550 + Math.random() * 250
+                });
+            }
+        }
+
+        function spawnSceneryPair(yPos) {
+            const types = ['palm', 'tapri', 'sea_pylon', 'billboard'];
+            const leftType = types[Math.floor(Math.random() * types.length)];
+            const rightType = types[Math.floor(Math.random() * types.length)];
+
+            state.scenery.push({
+                side: 'left',
+                x: state.roadLeft / 2,
+                y: yPos,
+                type: leftType
+            });
+            state.scenery.push({
+                side: 'right',
+                x: state.roadRight + (state.width - state.roadRight) / 2,
+                y: yPos + 45,
+                type: rightType
+            });
+        }
+
+        function resetGame() {
+            resizeCanvas();
+            state.distanceKm = 0;
+            state.bonusRupees = 0;
+            state.totalFare = 23;
+            state.landmarkIndex = 0;
+            state.landmarkTimer = 0;
+            state.baseSpeed = 290;
+            state.screenShake = 0;
+
+            state.player.x = state.roadLeft + state.laneWidth * 1.5;
+            state.player.y = state.height - 105;
+            state.player.vx = 0;
+            state.player.vy = 0;
+            state.player.health = 3;
+            state.player.invincibleTimer = 1.5;
+            state.player.chaiBoostTimer = 0;
+            state.player.slowedTimer = 0;
+            state.player.hornCooldown = 0;
+            state.player.tiltAngle = 0;
+
+            state.obstacles = [];
+            state.collectibles = [];
+            state.hornWaves = [];
+            state.floatingTexts = [];
+            state.exhaustParticles = [];
+
+            initSceneryAndRain();
+            updateHUD();
+        }
+
+        function getLaneCenter(laneIndex) {
+            return state.roadLeft + (laneIndex + 0.5) * state.laneWidth;
+        }
+
+        function spawnObstacle() {
+            const lane = Math.floor(Math.random() * state.lanes);
+            const laneX = getLaneCenter(lane);
+            const spawnY = -110;
+
+            // Ensure we don't overlap an existing obstacle near the top
+            const tooClose = state.obstacles.some(o => Math.abs(o.y - spawnY) < 135 && Math.abs(o.x - laneX) < state.laneWidth * 0.8);
+            if (tooClose) return;
+
+            const roll = Math.random();
+            let obs = null;
+
+            if (roll < 0.22) {
+                // 1. Red BEST Bus (Large, slower, changes lanes occasionally)
+                obs = {
+                    type: 'bus',
+                    name: 'BEST Double-Decker Bus',
+                    lane,
+                    targetX: laneX,
+                    x: laneX,
+                    y: spawnY,
+                    w: Math.min(50, state.laneWidth * 0.72),
+                    h: 102,
+                    speedOffset: -115, // Moves forward, slower than road scroll
+                    vx: 0,
+                    laneChangeTimer: 1.5 + Math.random() * 2.5,
+                    solid: true,
+                    honked: false
+                };
+            } else if (roll < 0.48) {
+                // 2. Kaali-Peeli Premier Padmini Taxi (Medium speed)
+                obs = {
+                    type: 'taxi',
+                    name: 'Kaali-Peeli Taxi',
+                    lane,
+                    targetX: laneX,
+                    x: laneX,
+                    y: spawnY,
+                    w: 38,
+                    h: 66,
+                    speedOffset: -145,
+                    vx: 0,
+                     solid: true,
+                    honked: false
+                };
+            } else if (roll < 0.72) {
+                // 3. Delivery Scooter / Two-Wheeler (Fast, weaves between lanes)
+                obs = {
+                    type: 'scooter',
+                    name: 'Swiggy/Zomato Delivery Scooter',
+                    lane,
+                    targetX: laneX,
+                    x: laneX,
+                    y: spawnY,
+                    w: 24,
+                    h: 44,
+                    speedOffset: -175,
+                    vx: 0,
+                    weavePhase: Math.random() * Math.PI * 2,
+                    solid: true,
+                    honked: false
+                };
+            } else if (roll < 0.88) {
+                // 4. BMC Roadwork Barricade or Monsoon Pothole (Static on road)
+                const isBarricade = Math.random() < 0.5;
+                obs = {
+                    type: isBarricade ? 'barricade' : 'pothole',
+                    name: isBarricade ? 'BMC Roadwork Barricade' : 'Monsoon Pothole',
+                    lane,
+                    targetX: laneX,
+                    x: laneX,
+                    y: spawnY,
+                    w: isBarricade ? 48 : 38,
+                    h: isBarricade ? 26 : 32,
+                    speedOffset: 0, // Static with road
+                    vx: 0,
+                    solid: isBarricade, // Barricade damages, pothole slows + splashes
+                    triggered: false
+                };
+            } else {
+                // 5. Stray Cow calmly crossing or chilling on highway
+                const fromLeft = Math.random() < 0.5;
+                obs = {
+                    type: 'cow',
+                    name: 'Sacred Stray Cow',
+                    lane,
+                    x: fromLeft ? state.roadLeft + 22 : state.roadRight - 22,
+                    targetX: laneX,
+                    y: spawnY,
+                    w: 44,
+                    h: 34,
+                    speedOffset: -20,
+                    vx: fromLeft ? 22 : -22,
+                    solid: true,
+                    honked: false
+                };
+            }
+
+            if (obs) state.obstacles.push(obs);
+        }
+
+        function spawnCollectible() {
+            const lane = Math.floor(Math.random() * state.lanes);
+            const laneX = getLaneCenter(lane);
+            const spawnY = -60;
+
+            // Avoid spawning right inside an obstacle
+            const blocked = state.obstacles.some(o => Math.abs(o.y - spawnY) < 90 && Math.abs(o.x - laneX) < 40);
+            if (blocked) return;
+
+            const roll = Math.random();
+            let kind = 'rupee';
+            if (roll < 0.13 && state.player.health < state.player.maxHealth) {
+                kind = 'vadapav'; // Restore 1 Vada Pav heart
+            } else if (roll < 0.24) {
+                kind = 'chai'; // Cutting Chai Turbo + Invincibility
+            }
+
+            state.collectibles.push({
+                kind,
+                x: laneX,
+                y: spawnY,
+                r: 16,
+                bobPhase: Math.random() * Math.PI * 2
+            });
+        }
+
+        /********************************************************************
+         * 5. SPECIAL MECHANIC: "HORN OK PLEASE!" (SPACEBAR / BUTTON)
+         ********************************************************************/
+        function triggerHorn() {
+            if (!state.running) return;
+            if (state.player.hornCooldown > 0) return;
+
+            state.player.hornCooldown = state.player.maxHornCooldown;
+            sound.playHorn();
+
+            // Create expanding visual sonic wave rings from front of Rickshaw
+            state.hornWaves.push({
+                x: state.player.x,
+                y: state.player.y - 28,
+                radius: 15,
+                maxRadius: 250,
+                alpha: 1.0
+            });
+
+            addFloatingText("PEEP PEEP! 📢", state.player.x, state.player.y - 48, "#FFD000");
+
+            // Make vehicles & cows ahead move out of the player's lane!
+            let scatteredCount = 0;
+            state.obstacles.forEach(obs => {
+                if (obs.type === 'barricade' || obs.type === 'pothole') return;
+                const dy = state.player.y - obs.y;
+                const dx = Math.abs(state.player.x - obs.x);
+
+                // Within range ahead and in or near the player's lane
+                if (dy > 0 && dy < 310 && dx < state.laneWidth * 0.95) {
+                    // Pick an adjacent lane away from player
+                    let newLane = obs.lane;
+                    if (obs.lane === 0) newLane = 1;
+                    else if (obs.lane === state.lanes - 1) newLane = state.lanes - 2;
+                    else {
+                        newLane = (obs.x < state.player.x) ? obs.lane - 1 : obs.lane + 1;
+                    }
+                    obs.lane = Math.max(0, Math.min(state.lanes - 1, newLane));
+                    obs.targetX = getLaneCenter(obs.lane);
+                    obs.honked = true;
+                    scatteredCount++;
+                    addFloatingText("SIDE PLEASE!", obs.x, obs.y - 25, "#38BDF8");
+                }
+            });
+
+            if (scatteredCount > 0) {
+                state.bonusRupees += scatteredCount * 2;
+            }
+        }
+
+        function addFloatingText(text, x, y, color = "#FFD000") {
+            state.floatingTexts.push({
+                text,
+                x,
+                y,
+                color,
+                alpha: 1,
+                vy: -45
+            });
+        }
+
+        /********************************************************************
+         * 6. MAIN UPDATE LOOP & PHYSICS
+         ********************************************************************/
+        function update(dt) {
+            const p = state.player;
+
+            // Automatic dynamic Mumbai Monsoon event every ~28 seconds if user hasn't manually toggled recently
+            state.weatherAutoTimer += dt;
+            if (state.weatherAutoTimer > 28) {
+                state.weatherAutoTimer = 0;
+                if (Math.random() < 0.45) {
+                    toggleMonsoon(!state.rainActive, true);
+                }
+            }
+
+            // Timers
+            if (p.invincibleTimer > 0) p.invincibleTimer = Math.max(0, p.invincibleTimer - dt);
+            if (p.chaiBoostTimer > 0) {
+                p.chaiBoostTimer = Math.max(0, p.chaiBoostTimer - dt);
+                uiChaiBadge.classList.remove('hidden');
+            } else {
+                uiChaiBadge.classList.add('hidden');
+            }
+            if (p.slowedTimer > 0) p.slowedTimer = Math.max(0, p.slowedTimer - dt);
+            if (p.hornCooldown > 0) p.hornCooldown = Math.max(0, p.hornCooldown - dt);
+            if (state.screenShake > 0) state.screenShake = Math.max(0, state.screenShake - dt * 25);
+
+            // Progressive difficulty based on distance
+            state.baseSpeed = Math.min(500, 290 + state.distanceKm * 28);
+
+            // Speed modifiers (Gas/Brake, Cutting Chai Boost, Pothole Slowdown)
+            let speedMult = 1.0;
+            if (p.chaiBoostTimer > 0) {
+                speedMult = 1.65;
+            } else if (p.slowedTimer > 0) {
+                speedMult = 0.55;
+            } else if (keys.up) {
+                speedMult = 1.28;
+            } else if (keys.down) {
+                speedMult = 0.68;
+            }
+
+            const currentScrollSpeed = state.baseSpeed * speedMult;
+            state.scrollOffset = (state.scrollOffset + currentScrollSpeed * dt) % 80;
+
+            // Update audio engine hum
+            sound.updateEnginePitch((currentScrollSpeed - 180) / 350, p.chaiBoostTimer > 0);
+
+            // Distance & Meter Fare calculation (Base ₹23 + ₹15 per km + collected coins)
+            state.distanceKm += (currentScrollSpeed * dt) / 3800;
+            state.totalFare = Math.floor(23 + state.distanceKm * 18 + state.bonusRupees);
+
+            // Cycle Mumbai Landmarks every 0.65 km
+            const newLandmarkIdx = Math.floor(state.distanceKm / 0.65) % MUMBAI_LANDMARKS.length;
+            if (newLandmarkIdx !== state.landmarkIndex) {
+                state.landmarkIndex = newLandmarkIdx;
+                uiLandmark.textContent = MUMBAI_LANDMARKS[state.landmarkIndex];
+                addFloatingText("📍 " + MUMBAI_LANDMARKS[state.landmarkIndex], state.width / 2, 110, "#FBBF24");
+            }
+
+            // Player Horizontal Steering (Slippery drift in Monsoon Rain!)
+            const steerAccel = state.rainActive ? 680 : 1250;
+            const friction = state.rainActive ? 0.94 : 0.82;
+            const maxVx = 290;
+
+            if (keys.left) {
+                p.vx -= steerAccel * dt;
+                p.tiltAngle = -0.14;
+            } else if (keys.right) {
+                p.vx += steerAccel * dt;
+                p.tiltAngle = 0.14;
+            } else {
+                p.vx *= Math.pow(friction, dt * 60);
+                p.tiltAngle *= 0.8;
+            }
+
+            p.vx = Math.max(-maxVx, Math.min(maxVx, p.vx));
+            p.x += p.vx * dt;
+
+            // Player Vertical subtle positioning
+            const targetY = keys.up
+                ? state.height - 135
+                : (keys.down ? state.height - 80 : state.height - 105);
+            p.y += (targetY - p.y) * 6 * dt;
+
+            // Keep inside road dividers
+            const minX = state.roadLeft + p.w / 2 + 6;
+            const maxX = state.roadRight - p.w / 2 - 6;
+            if (p.x < minX) {
+                p.x = minX;
+                p.vx = 0;
+            } else if (p.x > maxX) {
+                p.x = maxX;
+                p.vx = 0;
+            }
+
+            // Spawn 2-stroke auto exhaust puffs
+            if (Math.random() < 0.45) {
+                state.exhaustParticles.push({
+                    x: p.x - 8 + (Math.random() * 6 - 3),
+                    y: p.y + p.h / 2,
+                    r: 3 + Math.random() * 3,
+                    alpha: 0.55,
+                    color: p.chaiBoostTimer > 0 ? '#F59E0B' : '#94A3B8'
+                });
+            }
+
+            // Update Exhaust Particles
+            for (let i = state.exhaustParticles.length - 1; i >= 0; i--) {
+                const ep = state.exhaustParticles[i];
+                ep.y += currentScrollSpeed * 0.4 * dt;
+                ep.r += 12 * dt;
+                ep.alpha -= 1.4 * dt;
+                if (ep.alpha <= 0) state.exhaustParticles.splice(i, 1);
+            }
+
+            // Update Scenery (Palm trees, Chai Tapris, Sea Link pylons)
+            for (let i = state.scenery.length - 1; i >= 0; i--) {
+                const sc = state.scenery[i];
+                sc.y += currentScrollSpeed * dt;
+                if (sc.y > state.height + 70) {
+                    sc.y = -60;
+                }
+            }
+
+            // Spawn Traffic & Collectibles
+            if (Math.random() < (1.9 + state.distanceKm * 0.25) * dt) {
+                spawnObstacle();
+            }
+            if (Math.random() < 1.35 * dt) {
+                spawnCollectible();
+            }
+
+            // Update Horn Soundwaves
+            for (let i = state.hornWaves.length - 1; i >= 0; i--) {
+                const hw = state.hornWaves[i];
+                hw.radius += 380 * dt;
+                hw.y = p.y - 28;
+                hw.alpha = 1 - (hw.radius / hw.maxRadius);
+                if (hw.radius >= hw.maxRadius) state.hornWaves.splice(i, 1);
+            }
+
+            // Update Obstacles & Check Collisions
+            for (let i = state.obstacles.length - 1; i >= 0; i--) {
+                const obs = state.obstacles[i];
+                const relSpeed = currentScrollSpeed + obs.speedOffset;
+                obs.y += relSpeed * dt;
+
+                // Specific Obstacle AI behaviors
+                if (obs.type === 'bus' && !obs.honked) {
+                    obs.laneChangeTimer -= dt;
+                    if (obs.laneChangeTimer <= 0) {
+                        obs.laneChangeTimer = 2.5 + Math.random() * 2;
+                        if (Math.random() < 0.45) {
+                            const dir = Math.random() < 0.5 ? -1 : 1;
+                            obs.lane = Math.max(0, Math.min(state.lanes - 1, obs.lane + dir));
+                            obs.targetX = getLaneCenter(obs.lane);
+                        }
+                    }
+                } else if (obs.type === 'scooter' && !obs.honked) {
+                    obs.weavePhase += 3.8 * dt;
+                    obs.targetX = getLaneCenter(obs.lane) + Math.sin(obs.weavePhase) * (state.laneWidth * 0.32);
+                } else if (obs.type === 'cow' && !obs.honked) {
+                    obs.x += obs.vx * dt;
+                    if (obs.x < state.roadLeft + 24 || obs.x > state.roadRight - 24) {
+                        obs.vx *= -1;
+                    }
+                    obs.targetX = obs.x;
+                }
+
+                // Smooth horizontal movement toward target lane
+                obs.x += (obs.targetX - obs.x) * (obs.honked ? 8.5 : 4.5) * dt;
+
+                // Check AABB Collision with Player Auto Rickshaw
+                const hitX = Math.abs(p.x - obs.x) < (p.w * 0.42 + obs.w * 0.42);
+                const hitY = Math.abs(p.y - obs.y) < (p.h * 0.42 + obs.h * 0.42);
+
+                if (hitX && hitY) {
+                    if (p.chaiBoostTimer > 0) {
+                        // Invincible Cutting Chai Turbo smashes obstacles out of the way!
+                        sound.playCoin();
+                        state.bonusRupees += 5;
+                        addFloatingText("CHAI SMASH! +₹5", obs.x, obs.y, "#F97316");
+                        state.obstacles.splice(i, 1);
+                        continue;
+                    } else if (obs.type === 'pothole') {
+                        if (!obs.triggered) {
+                            obs.triggered = true;
+                            p.slowedTimer = 1.25;
+                            state.screenShake = 5;
+                            sound.playCrash();
+                            addFloatingText("SPLASH! POTHOLE SLOW!", p.x, p.y - 30, "#60A5FA");
+                        }
+                    } else if (p.invincibleTimer <= 0) {
+                        // Crash into solid vehicle/barricade/cow
+                        p.health -= 1;
+                        p.invincibleTimer = 1.75;
+                        state.screenShake = 11;
+                        sound.playCrash();
+                        addFloatingText("DHADAAK! -1 🍔", p.x, p.y - 35, "#F43F5E");
+
+                        if (p.health <= 0) {
+                            endGame(`Collided with a ${obs.name}!`);
+                            return;
+                        }
+                    }
+                }
+
+                // Remove off-screen obstacles
+                if (obs.y > state.height + 130) {
+                    state.obstacles.splice(i, 1);
+                }
+            }
+
+            // Update Collectibles (Rupees, Vada Pav, Cutting Chai)
+            for (let i = state.collectibles.length - 1; i >= 0; i--) {
+                const col = state.collectibles[i];
+                col.y += currentScrollSpeed * dt;
+                col.bobPhase += 5 * dt;
+
+                const dist = Math.hypot(p.x - col.x, p.y - col.y);
+                if (dist < p.w * 0.6 + col.r) {
+                    if (col.kind === 'rupee') {
+                        sound.playCoin();
+                        state.bonusRupees += 10;
+                        addFloatingText("+₹10 FARE", col.x, col.y, "#34D399");
+                    } else if (col.kind === 'vadapav') {
+                        sound.playPowerup();
+                        if (p.health < p.maxHealth) {
+                            p.health++;
+                            addFloatingText("GARAM VADA PAV! +1 ❤️", col.x, col.y, "#FBBF24");
+                        } else {
+                            state.bonusRupees += 25;
+                            addFloatingText("EXTRA VADA PAV! +₹25", col.x, col.y, "#FBBF24");
+                        }
+                    } else if (col.kind === 'chai') {
+                        sound.playPowerup();
+                        p.chaiBoostTimer = 4.5;
+                        addFloatingText("☕ CUTTING CHAI TURBO!", col.x, col.y, "#FB923C");
+                    }
+                    state.collectibles.splice(i, 1);
+                    continue;
+                }
+
+                if (col.y > state.height + 60) {
+                    state.collectibles.splice(i, 1);
+                }
+            }
+
+            // Update Monsoon Raindrops
+            if (state.rainActive) {
+                for (let r of state.rainDrops) {
+                    r.y += r.speed * dt;
+                    r.x -= 65 * dt;
+                    if (r.y > state.height) {
+                        r.y = -20;
+                        r.x = Math.random() * (state.width + 60);
+                    }
+                }
+            }
+
+            // Update Floating Texts
+            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = state.floatingTexts[i];
+                ft.y += ft.vy * dt;
+                ft.alpha -= 0.95 * dt;
+                if (ft.alpha <= 0) state.floatingTexts.splice(i, 1);
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            uiFare.textContent = state.totalFare;
+            uiDist.textContent = state.distanceKm.toFixed(1);
+
+            if (state.totalFare > highScore) {
+                highScore = state.totalFare;
+                uiBest.textContent = highScore;
+            }
+
+            // Render Vada Pav Health Icons
+            let heartsHTML = '';
+            for (let i = 0; i < state.player.maxHealth; i++) {
+                if (i < state.player.health) {
+                    heartsHTML += '<span class="drop-shadow">🍔</span>';
+                } else {
+                    heartsHTML += '<span class="opacity-25 grayscale">🍔</span>';
+                }
+            }
+            uiHealth.innerHTML = heartsHTML;
+
+            // Horn Cooldown Bar
+            const hornReadyRatio = 1 - (state.player.hornCooldown / state.player.maxHornCooldown);
+            uiHornBar.style.width = `${Math.max(0, Math.min(100, hornReadyRatio * 100))}%`;
+        }
+
+        /********************************************************************
+         * 7. RENDERING ENGINE (MUMBAI ROAD, KAALI-PEELI AUTO, TRAFFIC)
+         ********************************************************************/
+        function draw() {
+            ctx.save();
+
+            // Apply screen shake on collision
+            if (state.screenShake > 0) {
+                const dx = (Math.random() - 0.5) * state.screenShake;
+                const dy = (Math.random() - 0.5) * state.screenShake;
+                ctx.translate(dx, dy);
+            }
+
+            // 1. Sidewalks / Arabian Sea Promenade
+            ctx.fillStyle = '#0F172A';
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            // Decorative Sea Promenade pattern on left & footpath tiles on right
+            ctx.fillStyle = '#1E293B';
+            ctx.fillRect(0, 0, state.roadLeft, state.height);
+            ctx.fillRect(state.roadRight, 0, state.width - state.roadRight, state.height);
+
+            // 2. Main Asphalt Multi-Lane Highway
+            ctx.fillStyle = state.rainActive ? '#1E2430' : '#272E3B';
+            ctx.fillRect(state.roadLeft, 0, state.roadWidth, state.height);
+
+            // Wet road sheen reflection during Monsoon
+            if (state.rainActive) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.05)';
+                ctx.fillRect(state.roadLeft + 15, 0, state.roadWidth - 30, state.height);
+            }
+
+            // 3. Yellow & Black Painted Mumbai Curb Dividers
+            const curbW = 9;
+            const stripeH = 40;
+            for (let y = -stripeH * 2 + (state.scrollOffset % (stripeH * 2)); y < state.height; y += stripeH) {
+                const isYellow = Math.floor((y - state.scrollOffset) / stripeH) % 2 === 0;
+                ctx.fillStyle = isYellow ? '#FFD000' : '#18181B';
+                ctx.fillRect(state.roadLeft - curbW, y, curbW, stripeH);
+                ctx.fillRect(state.roadRight, y, curbW, stripeH);
+            }
+
+            // 4. Lane Dashed Markings
+            ctx.strokeStyle = 'rgba(248, 250, 252, 0.45)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([28, 32]);
+            ctx.lineDashOffset = -state.scrollOffset;
+            for (let l = 1; l < state.lanes; l++) {
+                const lx = state.roadLeft + l * state.laneWidth;
+                ctx.beginPath();
+                ctx.moveTo(lx, 0);
+                ctx.lineTo(lx, state.height);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // 5. Roadside Mumbai Scenery (Palm trees, Tapris, Sea Link Cables)
+            state.scenery.forEach(sc => drawSceneryItem(sc));
+
+            // 6. Ground Obstacles first (Potholes & Barricades)
+            state.obstacles.forEach(obs => {
+                if (obs.type === 'pothole' || obs.type === 'barricade') {
+                    drawObstacle(obs);
+                }
+            });
+
+            // 7. Collectibles (Rupee Coins, Vada Pav, Cutting Chai)
+            state.collectibles.forEach(col => drawCollectible(col));
+
+            // 8. Exhaust Particles
+            state.exhaustParticles.forEach(ep => {
+                ctx.fillStyle = ep.color;
+                ctx.globalAlpha = Math.max(0, ep.alpha);
+                ctx.beginPath();
+                ctx.arc(ep.x, ep.y, ep.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // 9. Moving Traffic Obstacles (Buses, Taxis, Scooters, Stray Cows)
+            state.obstacles.forEach(obs => {
+                if (obs.type !== 'pothole' && obs.type !== 'barricade') {
+                    drawObstacle(obs);
+                }
+            });
+
+            // 10. "Horn OK Please" Sonic Waves
+            state.hornWaves.forEach(hw => {
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 208, 0, ${hw.alpha})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(hw.x, hw.y, hw.radius, Math.PI * 1.15, Math.PI * 1.85);
+                ctx.stroke();
+
+                ctx.strokeStyle = `rgba(56, 189, 248, ${hw.alpha * 0.8})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(hw.x, hw.y, hw.radius * 0.75, Math.PI * 1.2, Math.PI * 1.8);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // 11. Player Kaali-Peeli Auto Rickshaw
+            drawPlayerAuto(state.player);
+
+            // 12. Monsoon Rain Overlay
+            if (state.rainActive) {
+                ctx.strokeStyle = 'rgba(186, 230, 253, 0.55)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let r of state.rainDrops) {
+                    ctx.moveTo(r.x, r.y);
+                    ctx.lineTo(r.x - 4, r.y + r.len);
+                }
+                ctx.stroke();
+            }
+
+            // 13. Floating Arcade Notifications
+            state.floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.font = '900 13px "Inter", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.fillStyle = '#000000';
+                ctx.fillText(ft.text, ft.x + 1.5, ft.y + 1.5);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function drawPlayerAuto(p) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.tiltAngle);
+
+            // Blink when recovering from crash
+            if (p.invincibleTimer > 0 && Math.floor(p.invincibleTimer * 12) % 2 === 0) {
+                ctx.globalAlpha = 0.45;
+            }
+
+            // Cutting Chai Golden Turbo Aura
+            if (p.chaiBoostTimer > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#F59E0B';
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, 42 + Math.sin( performance.now() * 0.02 ) * 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Drop shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.roundRect(-p.w / 2 + 3, -p.h / 2 + 4, p.w, p.h, 10);
+            ctx.fill();
+
+            // Front Single Wheel protruding slightly
+            ctx.fillStyle = '#09090B';
+            ctx.beginPath();
+            ctx.roundRect(-5, -p.h / 2 - 4, 10, 12, 3);
+            ctx.fill();
+
+            // Front Mudguard (Yellow)
+            ctx.fillStyle = '#FFD000';
+            ctx.beginPath();
+            ctx.roundRect(-7, -p.h / 2 + 1, 14, 12, 5);
+            ctx.fill();
+
+            // Rear Two Wheels
+            ctx.fillStyle = '#09090B';
+            ctx.fillRect(-p.w / 2 - 3, p.h / 2 - 18, 4, 14);
+            ctx.fillRect(p.w / 2 - 1, p.h / 2 - 18, 4, 14);
+
+            // Lower Chassis Body (Black "Kaali")
+            ctx.fillStyle = '#18181B';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-p.w / 2, -p.h / 2 + 8, p.w, p.h - 8, [14, 14, 6, 6]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Windshield Glass (Cyan tint)
+            ctx.fillStyle = '#38BDF8';
+            ctx.beginPath();
+            ctx.roundRect(-p.w / 2 + 4, -p.h / 2 + 12, p.w - 8, 9, 4);
+            ctx.fill();
+
+            // Iconic Canopy Roof (Yellow "Peeli")
+            ctx.fillStyle = '#FFD000';
+            ctx.beginPath();
+            ctx.roundRect(-p.w / 2 + 2, -p.h / 2 + 20, p.w - 4, p.h - 24, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Decorative Roof Stripes & "HORN OK" Rear Stencil
+            ctx.fillStyle = '#E11D48';
+            ctx.fillRect(-p.w / 2 + 5, p.h / 2 - 9, p.w - 10, 4);
+
+            ctx.fillStyle = '#18181B';
+            ctx.font = '900 7px "Inter", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('MH•01', 0, -2);
+            ctx.fillText('AUTO', 0, 8);
+
+            // Headlight beam
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.35)';
+            ctx.beginPath();
+            ctx.moveTo(-6, -p.h / 2);
+            ctx.lineTo(-22, -p.h / 2 - 42);
+            ctx.lineTo(22, -p.h / 2 - 42);
+            ctx.lineTo(6, -p.h / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawObstacle(obs) {
+            ctx.save();
+            ctx.translate(obs.x, obs.y);
+
+            if (obs.type === 'bus') {
+                // Iconic Red BEST Bus
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.fillRect(-obs.w / 2 + 4, -obs.h / 2 + 5, obs.w, obs.h);
+
+                ctx.fillStyle = '#E11D48'; // BEST Crimson Red
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h, 7);
+                ctx.fill();
+                ctx.stroke();
+
+                // White side trim & front windshield
+                ctx.fillStyle = '#F8FAFC';
+                ctx.fillRect(-obs.w / 2 + 3, -obs.h / 2 + 12, obs.w - 6, obs.h - 24);
+                ctx.fillStyle = '#DC2626';
+                ctx.fillRect(-obs.w / 2 + 5, -obs.h / 2 + 14, obs.w - 10, obs.h - 28);
+
+                // AC Roof unit
+                ctx.fillStyle = '#991B1B';
+                ctx.fillRect(-obs.w / 2 + 9, -obs.h / 2 + 22, obs.w - 18, 42);
+
+                // Windshield & Tail lights
+                ctx.fillStyle = '#7DD3FC';
+                ctx.fillRect(-obs.w / 2 + 5, -obs.h / 2 + 4, obs.w - 10, 8);
+
+                ctx.fillStyle = '#FEF08A';
+                ctx.font = '900 8px "Inter", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('B.E.S.T', 0, 4);
+            }
+            else if (obs.type === 'taxi') {
+                // Kaali-Peeli Premier Padmini Taxi
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2 + 3, -obs.h / 2 + 4, obs.w, obs.h, 8);
+                ctx.fill();
+
+                // Black body
+                ctx.fillStyle = '#18181B';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                // Windshields
+                ctx.fillStyle = '#38BDF8';
+                ctx.fillRect(-obs.w / 2 + 5, -obs.h / 2 + 12, obs.w - 10, 9);
+                ctx.fillRect(-obs.w / 2 + 5, obs.h / 2 - 18, obs.w - 10, 7);
+
+                // Yellow Roof
+                ctx.fillStyle = '#FFD000';
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2 + 4, -obs.h / 2 + 20, obs.w - 8, 26, 4);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.font = '800 7px "Inter", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('TAXI', 0, 3);
+            }
+            else if (obs.type === 'scooter') {
+                // Delivery Scooter with Orange Delivery Box
+                ctx.fillStyle = '#09090B';
+                ctx.fillRect(-3, -obs.h / 2, 6, obs.h);
+
+                // Handlebar
+                ctx.strokeStyle = '#E2E8F0';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-11, -obs.h / 2 + 9);
+                ctx.lineTo(11, -obs.h / 2 + 9);
+                ctx.stroke();
+
+                // Scooter body
+                ctx.fillStyle = '#38BDF8';
+                ctx.beginPath();
+                ctx.roundRect(-8, -obs.h / 2 + 6, 16, obs.h - 10, 5);
+                ctx.fill();
+
+                // Rider Helmet (White/Blue)
+                ctx.fillStyle = '#F8FAFC';
+                ctx.beginPath();
+                ctx.arc(0, -3, 7, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Delivery Parcel Box on back
+                ctx.fillStyle = '#F97316';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(-9, 6, 18, 13);
+                ctx.strokeRect(-9, 6, 18, 13);
+            }
+            else if (obs.type === 'barricade') {
+                // Yellow/Black BMC Roadwork Barricade
+                ctx.fillStyle = '#FFD000';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2, -obs.h / 2, obs.w, obs.h, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Black diagonal hazard stripes
+                ctx.fillStyle = '#18181B';
+                ctx.fillRect(-obs.w / 2 + 6, -obs.h / 2 + 3, 8, obs.h - 6);
+                ctx.fillRect(obs.w / 2 - 14, -obs.h / 2 + 3, 8, obs.h - 6);
+
+                ctx.fillStyle = '#000';
+                ctx.font = '900 7px "Inter", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('BMC WORK', 0, 3);
+            }
+            else if (obs.type === 'pothole') {
+                // Muddy Monsoon Pothole
+                ctx.fillStyle = '#090D16';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, obs.w / 2, obs.h / 2, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = state.rainActive ? '#0284C7' : '#451A03';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, obs.w / 2 - 4, obs.h / 2 - 4, -0.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            else if (obs.type === 'cow') {
+                // White Sacred Stray Cow with spots
+                ctx.fillStyle = '#F8FAFC';
+                ctx.strokeStyle = '#1E293B';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-obs.w / 2, -obs.h / 2 + 4, obs.w - 8, obs.h - 8, 9);
+                ctx.fill();
+                ctx.stroke();
+
+                // Black patches
+                ctx.fillStyle = '#18181B';
+                ctx.beginPath();
+                ctx.arc(-6, -2, 5, 0, Math.PI * 2);
+                ctx.arc(4, 3, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head & Horns
+                const dir = obs.vx >= 0 ? 1 : -1;
+                ctx.fillStyle = '#F1F5F9';
+                ctx.beginPath();
+                ctx.arc(dir * (obs.w / 2 - 4), 0, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawCollectible(col) {
+            ctx.save();
+            const bobY = Math.sin(col.bobPhase) * 3;
+            ctx.translate(col.x, col.y + bobY);
+
+            // Glow circle
+            ctx.fillStyle = col.kind === 'rupee'
+                ? 'rgba(16, 185, 129, 0.25)'
+                : (col.kind === 'chai' ? 'rgba(249, 115, 22, 0.35)' : 'rgba(250, 204, 21, 0.35)');
+            ctx.beginPath();
+            ctx.arc(0, 0, col.r + 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (col.kind === 'rupee') {
+                ctx.fillStyle = '#FBBF24';
+                ctx.strokeStyle = '#78350F';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, col.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#78350F';
+                ctx.font = '900 15px "Inter", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('₹', 0, 1);
+            } else if (col.kind === 'vadapav') {
+                ctx.font = '22px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🍔', 0, 1);
+            } else if (col.kind === 'chai') {
+                ctx.font = '22px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('☕', 0, 1);
+            }
+
+            ctx.restore();
+        }
+
+        function drawSceneryItem(sc) {
+            ctx.save();
+            ctx.translate(sc.x, sc.y);
+
+            if (sc.type === 'palm') {
+                // Mumbai Marine Drive / Juhu Coconut Palm fronds
+                ctx.fillStyle = '#78350F';
+                ctx.beginPath();
+                ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#15803D';
+                ctx.lineWidth = 4;
+                for (let a = 0; a < 6; a++) {
+                    const angle = (a * Math.PI) / 3;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(angle) * 16, Math.sin(angle) * 16);
+                    ctx.stroke();
+                }
+            } else if (sc.type === 'tapri') {
+                // Roadside Blue-Tarp Chai / Vada Pav Stall
+                ctx.fillStyle = '#0284C7';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(-13, -13, 26, 26);
+                ctx.strokeRect(-13, -13, 26, 26);
+            } else if (sc.type === 'sea_pylon') {
+                // Bandra-Worli Sea Link Cable Pylon
+                ctx.fillStyle = '#94A3B8';
+                ctx.fillRect(-10, -8, 20, 16);
+                ctx.strokeStyle = '#E2E8F0';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(sc.side === 'left' ? 18 : -18, 25);
+                ctx.stroke();
+            } else {
+                // Bollywood / Local Neon Signpost
+                ctx.fillStyle = '#A855F7';
+                ctx.fillRect(-12, -6, 24, 12);
+            }
+
+            ctx.restore();
+        }
+
+        /********************************************************************
+         * 8. GAME LOOP & STATE TRANSITIONS
+         ********************************************************************/
+        function gameLoop(timestamp) {
+            if (!state.lastTime) state.lastTime = timestamp;
+            const dt = Math.min(0.05, (timestamp - state.lastTime) / 1000);
+            state.lastTime = timestamp;
+
+            if (state.running) {
+                update(dt);
+            }
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            resetGame();
+            state.running = true;
+            state.lastTime = performance.now();
+            overlayScreen.classList.add('hidden');
+            sound.startEngine();
+            sound.playHorn();
+        }
+
+        function endGame(reasonText) {
+            state.running = false;
+            sound.stopEngine();
+
+            if (state.totalFare > highScore) {
+                highScore = state.totalFare;
+                try {
+                    localStorage.setItem('mumbai_rush_best_fare', String(highScore));
+                } catch (e) {}
+            }
+
+            modalTitle.textContent = "TRAFFIC JAMMED!";
+            modalSubtitle.textContent = "Your Kaali-Peeli Auto needs garage repairs!";
+            scoreSummary.classList.remove('hidden');
+            finalFareEl.textContent = state.totalFare;
+            finalDistEl.textContent = state.distanceKm.toFixed(2);
+            finalBestEl.textContent = highScore;
+            crashReasonEl.textContent = reasonText || "Heavy Mumbai traffic got the best of you!";
+            btnStart.textContent = "🛺 PLAY AGAIN (RESET METER)";
+
+            overlayScreen.classList.remove('hidden');
+        }
+
+        function toggleMonsoon(forceState, isAuto = false) {
+            state.rainActive = typeof forceState === 'boolean' ? forceState : !state.rainActive;
+            if (!isAuto) state.weatherAutoTimer = 0;
+
+            const rainIcon = document.getElementById('rain-icon');
+            const rainLabel = document.getElementById('rain-label');
+            if (state.rainActive) {
+                rainIcon.textContent = '🌧️';
+                rainLabel.textContent = 'Rain';
+                addFloatingText("🌧️ MUMBAI MONSOON! SLIPPERY ROAD!", state.width / 2, 145, "#38BDF8");
+            } else {
+                rainIcon.textContent = '☀️';
+                rainLabel.textContent = 'Dry';
+                addFloatingText("☀️ SUNNY WEATHER CLEAR!", state.width / 2, 145, "#FDE047");
+            }
+        }
+
+        /********************************************************************
+         * 9. KEYBOARD, MOUSE & TOUCH EVENT LISTENERS
+         ********************************************************************/
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                keys.left = true;
+                document.getElementById('ctrl-left').classList.add('active-press');
+            }
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                keys.right = true;
+                document.getElementById('ctrl-right').classList.add('active-press');
+            }
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+                keys.up = true;
+                document.getElementById('ctrl-up').classList.add('active-press');
+            }
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                keys.down = true;
+                document.getElementById('ctrl-down').classList.add('active-press');
+            }
+            if (e.code === 'Space') {
+                e.preventDefault();
+                document.getElementById('ctrl-horn').classList.add('active-press');
+                if (state.running) {
+                    triggerHorn();
+                } else {
+                    startGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                keys.left = false;
+                document.getElementById('ctrl-left').classList.remove('active-press');
+            }
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                keys.right = false;
+                document.getElementById('ctrl-right').classList.remove('active-press');
+            }
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+                keys.up = false;
+                document.getElementById('ctrl-up').classList.remove('active-press');
+            }
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+                keys.down = false;
+                document.getElementById('ctrl-down').classList.remove('active-press');
+            }
+            if (e.code === 'Space') {
+                document.getElementById('ctrl-horn').classList.remove('active-press');
+            }
+        });
+
+        // Bind On-Screen Hold Buttons for Mobile & Mouse
+        function bindHoldButton(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            const press = (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+                btn.classList.add('active-press');
+            };
+            const release = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+                btn.classList.remove('active-press');
+            };
+            btn.addEventListener('pointerdown', press);
+            btn.addEventListener('pointerup', release);
+            btn.addEventListener('pointerleave', release);
+            btn.addEventListener('pointercancel', release);
+        }
+
+        bindHoldButton('ctrl-left', 'left');
+        bindHoldButton('ctrl-right', 'right');
+        bindHoldButton('ctrl-up', 'up');
+        bindHoldButton('ctrl-down', 'down');
+
+        // Horn Button
+        document.getElementById('ctrl-horn').addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            triggerHorn();
+        });
+
+        // Direct Canvas Touch Dragging / Double-Tap Horn for Mobile Convenience
+        let touchLastTap = 0;
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!state.running) return;
+            const now = performance.now();
+            if (now - touchLastTap < 280) {
+                triggerHorn();
+            }
+            touchLastTap = now;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            if (clickX < state.player.x) {
+                keys.left = true;
+                keys.right = false;
+            } else {
+                keys.right = true;
+                keys.left = false;
+            }
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            keys.left = false;
+            keys.right = false;
+        });
+
+        // Start / Restart Button
+        btnStart.addEventListener('click', startGame);
+
+        // Monsoon Weather Button
+        document.getElementById('btn-rain').addEventListener('click', () => {
+            toggleMonsoon();
+        });
+
+        // Mute / Unmute Audio Button
+        document.getElementById('btn-mute').addEventListener('click', () => {
+            sound.muted = !sound.muted;
+            document.getElementById('mute-icon').textContent = sound.muted ? '🔇' : '🔊';
+            if (sound.engineGain && sound.ctx) {
+                sound.engineGain.gain.setTargetAtTime(sound.muted ? 0 : 0.035, sound.ctx.currentTime, 0.05);
+            }
+        });
+
+        // Initialize on Window Load
+        window.onload = function () {
+            resetGame();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
